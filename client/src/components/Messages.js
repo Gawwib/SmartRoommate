@@ -4,10 +4,8 @@ import { FaUserFriends } from 'react-icons/fa';
 import API from '../services/api';
 import { DEFAULT_PROPERTY_IMAGE } from '../constants/propertyMedia';
 
-const useQuery = () => new URLSearchParams(useLocation().search);
-
 export default function Messages() {
-  const query = useQuery();
+  const location = useLocation();
   const navigate = useNavigate();
   const [conversations, setConversations] = useState([]);
   const [activeId, setActiveId] = useState(null);
@@ -47,8 +45,9 @@ export default function Messages() {
   useEffect(() => {
     const bootstrap = async () => {
       setLoading(true);
-      const recipient = query.get('recipient');
-      const property = query.get('property');
+      const params = new URLSearchParams(location.search);
+      const recipient = params.get('recipient');
+      const property = params.get('property');
       let meId = null;
       try {
         const me = await API.get('/users/me');
@@ -110,7 +109,7 @@ export default function Messages() {
     };
 
     bootstrap();
-  }, []);
+  }, [location.search, navigate]);
 
   const activeConversation = useMemo(
     () => conversations.find((conversation) => conversation.id === activeId),
