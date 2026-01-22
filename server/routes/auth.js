@@ -10,14 +10,15 @@ const { sendMail } = require('../utils/mailer');
 router.post('/register', async (req, res) => {
   try {
     const { name, email, password, birthdate, termsAccepted, emailOptIn } = req.body;
-    if (!name || !email || !password) return res.status(400).json({ message: 'Missing fields' });
+    if (!name || !email || !password || !birthdate) {
+      return res.status(400).json({ message: 'Name, email, password, and birthdate are required.' });
+    }
     if (!termsAccepted) return res.status(400).json({ message: 'You must accept the terms and conditions.' });
 
     const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
     if (existing.length) return res.status(400).json({ message: 'Email already used' });
 
     const hashed = await bcrypt.hash(password, 10);
-    const defaultBirthdate = birthdate || '2003-01-01';
     const calculateAge = (value) => {
       const dob = new Date(value);
       if (Number.isNaN(dob.getTime())) return null;
@@ -25,10 +26,13 @@ router.post('/register', async (req, res) => {
       const ageDate = new Date(diff);
       return Math.abs(ageDate.getUTCFullYear() - 1970);
     };
-    const age = calculateAge(defaultBirthdate);
+    const age = calculateAge(birthdate);
+    if (age === null) {
+      return res.status(400).json({ message: 'Birthdate is invalid.' });
+    }
     const [result] = await pool.query(
       'INSERT INTO users (name, email, password, birthdate, age, terms_accepted, email_opt_in) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [name, email, hashed, defaultBirthdate, age, 1, emailOptIn ? 1 : 0]
+      [name, email, hashed, birthdate, age, 1, emailOptIn ? 1 : 0]
     );
 
     const token = jwt.sign({ id: result.insertId }, process.env.JWT_SECRET);

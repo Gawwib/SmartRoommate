@@ -49,7 +49,14 @@ return (
 </div>
 <div className="mb-3">
 <label className="form-label">Birthdate</label>
-<input name="birthdate" type="date" onChange={handleChange} value={data.birthdate} className="form-control" />
+<input
+name="birthdate"
+type="date"
+onChange={handleChange}
+value={data.birthdate}
+className="form-control"
+required
+/>
 </div>
 <div className="mb-3 form-check">
 <input
