@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const { createClient } = require('@supabase/supabase-js');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const propertyRoutes = require('./routes/properties');
@@ -20,7 +21,7 @@ if (!fs.existsSync(uploadsPath)) {
   fs.mkdirSync(uploadsPath, { recursive: true });
 }
 
-const storage = multer.diskStorage({
+const diskStorage = multer.diskStorage({
   destination: uploadsPath,
   filename: (req, file, cb) => {
     const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
@@ -29,8 +30,28 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({
-  storage,
+const supabaseEnabled =
+  Boolean(process.env.SUPABASE_URL) &&
+  Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY) &&
+  Boolean(process.env.SUPABASE_BUCKET);
+
+const supabase = supabaseEnabled
+  ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+  : null;
+
+const uploadDisk = multer({
+  storage: diskStorage,
+  limits: { fileSize: 5 * 1024 * 1024, files: 6 },
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) {
+      return cb(new Error('Only image files are allowed.'));
+    }
+    cb(null, true);
+  }
+});
+
+const uploadCloud = multer({
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024, files: 6 },
   fileFilter: (req, file, cb) => {
     if (!file.mimetype.startsWith('image/')) {
@@ -43,14 +64,41 @@ const upload = multer({
 app.use('/uploads', express.static(uploadsPath));
 
 app.post('/api/uploads', authMiddleware, (req, res) => {
-  upload.array('images', 6)(req, res, (err) => {
+  const handler = supabaseEnabled ? uploadCloud : uploadDisk;
+  handler.array('images', 6)(req, res, async (err) => {
     if (err) {
       console.error(err);
       return res.status(400).json({ message: err.message || 'Unable to upload files.' });
     }
 
-    const fileUrls = (req.files || []).map((file) => `${req.protocol}://${req.get('host')}/uploads/${file.filename}`);
-    res.status(201).json({ urls: fileUrls });
+    try {
+      if (!supabaseEnabled) {
+        const fileUrls = (req.files || []).map((file) => `${req.protocol}://${req.get('host')}/uploads/${file.filename}`);
+        return res.status(201).json({ urls: fileUrls });
+      }
+
+      const bucket = process.env.SUPABASE_BUCKET;
+      const uploadToSupabase = async (file) => {
+        const ext = path.extname(file.originalname) || '';
+        const fileName = `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
+        const filePath = `uploads/${fileName}`;
+        const { error: uploadError } = await supabase.storage.from(bucket).upload(filePath, file.buffer, {
+          contentType: file.mimetype,
+          upsert: false
+        });
+        if (uploadError) {
+          throw uploadError;
+        }
+        const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
+        return data.publicUrl;
+      };
+
+      const fileUrls = await Promise.all((req.files || []).map((file) => uploadToSupabase(file)));
+      return res.status(201).json({ urls: fileUrls });
+    } catch (uploadError) {
+      console.error(uploadError);
+      return res.status(500).json({ message: 'Unable to upload files.' });
+    }
   });
 });
 
