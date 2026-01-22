@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 
 
 export default function Register() {
-const [data, setData] = useState({ name: '', email: '', password: '' });
+const [data, setData] = useState({ name: '', email: '', password: '', birthdate: '' });
 const [termsAccepted, setTermsAccepted] = useState(false);
 const [emailOptIn, setEmailOptIn] = useState(false);
 const [error, setError] = useState('');
@@ -46,6 +46,10 @@ return (
 <div className="mb-3">
 <label className="form-label">Password</label>
 <input name="password" type="password" onChange={handleChange} value={data.password} required className="form-control" />
+</div>
+<div className="mb-3">
+<label className="form-label">Birthdate</label>
+<input name="birthdate" type="date" onChange={handleChange} value={data.birthdate} className="form-control" />
 </div>
 <div className="mb-3 form-check">
 <input

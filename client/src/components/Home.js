@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FaCompass, FaSearch } from 'react-icons/fa';
 import LandingImage from '../assets/images/landing.jpg';
+import { useRole } from '../context/RoleContext';
 
 export default function Home() {
   const navigate = useNavigate();
+  const { isHost, toggleMode } = useRole();
   const [query, setQuery] = useState('');
   const [minBudget, setMinBudget] = useState('');
   const [maxBudget, setMaxBudget] = useState('');
+  const isAuthenticated = useMemo(() => Boolean(localStorage.getItem('token')), []);
 
   const handleSearch = (event) => {
     if (event) {
@@ -18,6 +21,17 @@ export default function Home() {
     if (minBudget.trim()) params.set('min', minBudget.trim());
     if (maxBudget.trim()) params.set('max', maxBudget.trim());
     navigate(`/properties?${params.toString()}`);
+  };
+
+  const handleBecomeHost = () => {
+    if (!isAuthenticated) {
+      navigate('/register');
+      return;
+    }
+    if (!isHost) {
+      toggleMode();
+    }
+    navigate('/properties/new');
   };
 
   return (
@@ -72,9 +86,9 @@ export default function Home() {
             <Link to="/properties" className="btn btn-primary btn-lg">
               Browse rooms
             </Link>
-            <Link to="/register" className="btn btn-outline-primary btn-lg">
+            <button type="button" className="btn btn-outline-primary btn-lg" onClick={handleBecomeHost}>
               Become a host
-            </Link>
+            </button>
           </div>
         </div>
         <div className="hero-visual">
