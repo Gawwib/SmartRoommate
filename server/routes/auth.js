@@ -30,6 +30,9 @@ router.post('/register', async (req, res) => {
     if (age === null) {
       return res.status(400).json({ message: 'Birthdate is invalid.' });
     }
+    if (age < 18) {
+      return res.status(400).json({ message: 'You must be at least 18 years old to register.' });
+    }
     const [result] = await pool.query(
       'INSERT INTO users (name, email, password, birthdate, age, terms_accepted, email_opt_in) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [name, email, hashed, birthdate, age, 1, emailOptIn ? 1 : 0]
